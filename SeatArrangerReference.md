@@ -6,13 +6,14 @@
 |:-:|:-:|:-:|:-:|:-:|
 |对应文件名|SeatArranger.cs|Peoples.cs|PeopleCombination.cs|RelationshipsManager.cs|  
 |公有|√|×|×|×|
-|可序列化|×|对|√|√|
+|可序列化|×|√|√|√|
 |作用|外部调用封装|根据编号获取人的姓名|用于存储人的固定组合（关系）的类|对人与人之间的关系进行增减更变存储读取|
 
 ## 开发思路及源码说明
 ### Peoples.cs
 就是一个类似枚举类型的类没啥可看的→_→
-~~暴露了同学们的姓名应该不会打我吧~~
+
+~~暴露了同学们的姓名ta们应该不会打我吧~~
 ```cs
 namespace Alaric.SeatArranger
 {
@@ -100,3 +101,318 @@ namespace SeatArranger
     }
 }
 ```
+### RelationshipsManager.cs
+~~忘干净怎么设计的了.avi~~
+```cs
+using System;
+using System.IO;
+using System.Runtime.Serialization.Formatters.Binary;
+
+namespace Alaric.SeatArranger
+{
+    [Serializable]
+    public class RelationshipsManager
+    {
+        private PeopleCombination[] Relationships;
+        private RelationshipsManager(PeopleCombination[] r)
+        {
+            Relationships = r;
+        }
+        private PeopleCombination tmp1;
+        private PeopleCombination tmp2;
+        public static RelationshipsManager Read()
+        {
+            string dir = Directory.GetCurrentDirectory();
+            if (!dir.EndsWith(@"\")) {
+                dir += @"\";
+            }
+            dir += "relation.dat";
+            FileStream fileStream;
+            BinaryFormatter b = new BinaryFormatter();
+            if (!File.Exists(dir))
+            {
+                fileStream = new FileStream(dir, FileMode.Create);
+                PeopleCombination[] Relationships = new PeopleCombination[67];
+                for (int i = 0; i < 67; i++)
+                {
+                    Relationships[i] = new PeopleCombination(i);
+                }
+                b.Serialize(fileStream, new RelationshipsManager(Relationships));
+                fileStream.Close();
+            }
+            fileStream = new FileStream(dir, FileMode.Open, FileAccess.Read, FileShare.Read);
+            RelationshipsManager c = b.Deserialize(fileStream) as RelationshipsManager;
+            fileStream.Close();
+            return c;
+        }
+        public void Save()
+        {
+            string dir = Directory.GetCurrentDirectory();
+            if (!dir.EndsWith(@"\"))
+            {
+                dir += @"\";
+            }
+            dir += "relation.dat";
+            FileStream fileStream;
+            BinaryFormatter b = new BinaryFormatter();
+            fileStream = new FileStream(dir, FileMode.Create);
+            b.Serialize(fileStream, this);
+            fileStream.Close();
+        }
+        public PeopleCombination GetCombinationOf(int A)
+        {
+            return Relationships[A];
+        }
+        public bool AddCombinationOf(int A,int B)
+        {
+            if ((!(Judge(A) && Judge(B))) || Relationships[A].Contians(B))
+                return false;
+            tmp1 = Relationships[A];
+            tmp2 = Relationships[B];
+            if (tmp2.GetIndexOf(B) != 0)
+                tmp2.Reverse();
+            if (tmp1.GetIndexOf(A) != (tmp1.Count() - 1))
+                tmp1.Reverse();
+            PeopleCombination re= PeopleCombination.Combine(tmp1, tmp2);
+            
+            Relationships[A] = re;
+            Relationships[B] = re;
+            return true;
+        }
+        private bool Judge(int A)
+        {
+            switch (Relationships[A].Count())
+            {
+                case 4:
+                    return false;
+                case 3:
+                    if (Relationships[A].GetIndexOf(A) == 1)
+                        return false;
+                    else
+                        return true;
+                default:
+                    return true;
+            }
+        }
+        public bool RemoveCombinationOf(int A, int B)
+        {
+            if (!(GetCombinationOf(A) == (GetCombinationOf(B))))
+            {
+                Console.WriteLine("Unable to REMOVE combination of {0} and {1} , because there is not any relationship between them.", Peoples.Get(A), Peoples.Get(B));
+                return false;
+            }
+            int larger = (GetCombinationOf(A).GetIndexOf(A) > GetCombinationOf(B).GetIndexOf(B)) ? GetCombinationOf(A).GetIndexOf(A) : GetCombinationOf(B).GetIndexOf(B);
+            PeopleCombination[] pcs = GetCombinationOf(A).Split(larger);
+            Relationships[A] = pcs[0].Contians(A) ? pcs[0] : pcs[1];
+            Relationships[B] = pcs[0].Contians(B) ? pcs[0] : pcs[1];
+            return true;
+        }
+    }
+}
+```
+### SeatArranger.cs
+emmmmmmmm 不就是一年前的祖传代码吗
+
+~~我绝对还记得是什么回事~~
+
+~~“真·眼花”~~
+```cs
+using System;
+using System.Collections;
+
+namespace Alaric.SeatArranger
+{
+    public class SeatArranger
+    {
+        ArrayList PeoplePool = new ArrayList();
+        ArrayList SinglePeoplePool = new ArrayList();
+        ArrayList _4C = new ArrayList();
+        ArrayList _3C = new ArrayList();
+        ArrayList _2C = new ArrayList();
+        //各组合最大容纳数
+        int _4 = 7;
+        int _3 = 11;
+        int _2 = 3;
+        Random r = new Random(DateTime.Now.Millisecond);
+        int nowIndex;
+        PeopleCombination nowCombination;
+        PeopleCombination nowCombination_;
+        RelationshipsManager rm = RelationshipsManager.Read();
+        public void Arrange()
+        {
+            for (int i = 0; i < 67; i++)
+            {
+                PeoplePool.Add(i);
+            }
+            for (; PeoplePool.Count != 0;)
+            {
+                nowIndex = r.Next(0, PeoplePool.Count);
+                nowCombination = rm.GetCombinationOf((int)PeoplePool[nowIndex]);
+                foreach (var item in nowCombination.GetInnerData())
+                {
+                    PeoplePool.Remove(item);
+                }
+                switch (nowCombination.Count())
+                {
+                    case 1:
+                        SinglePeoplePool.Add(nowCombination);
+                        break;
+                    case 2:
+                        _2C.Add(nowCombination);
+                        break;
+                    case 3:
+                        _3C.Add(nowCombination);
+                        break;
+                    case 4:
+                        _4C.Add(nowCombination);
+                        break;
+                }
+            }
+            //去余补缺
+            while (_4C.Count > _4)
+            {
+                Console.WriteLine("Can't keep up!! Four people Combination is too much. Try to divide some...");
+                nowIndex = r.Next(0, _4C.Count);
+                if (Ran())
+                    _2C.AddRange(((PeopleCombination)_4C[nowIndex]).Split(2));
+                else
+                {
+                    if (Ran())
+                    {
+                        SinglePeoplePool.Add(((PeopleCombination)_4C[nowIndex]).Split(1)[0]);
+                        _2C.Add(((PeopleCombination)_4C[nowIndex]).Split(1)[1]);
+                    }
+                    else
+                    {
+                        SinglePeoplePool.Add(((PeopleCombination)_4C[nowIndex]).Split(3)[1]);
+                        _2C.Add(((PeopleCombination)_4C[nowIndex]).Split(3)[0]);
+                    }
+                    _4C.Remove(_4C[nowIndex]);
+                }
+                _4C.Remove(_4C[nowIndex]);
+            }
+            while (_3C.Count > _3)
+            {
+                if ((_4C.Count < _4) && (SinglePeoplePool.Count > 0))
+                {
+                    nowIndex = r.Next(0, SinglePeoplePool.Count);
+                    nowCombination = (PeopleCombination)SinglePeoplePool[nowIndex];
+                    SinglePeoplePool.Remove(nowCombination);
+                    nowIndex = r.Next(0, _3C.Count);
+                    nowCombination_ = (PeopleCombination)_3C[nowIndex];
+                    _3C.Remove(nowCombination_);
+                    _4C.Add(PeopleCombination.Combine(nowCombination, nowCombination_));
+                }
+                else
+                {
+                    Console.WriteLine("Can't keep up!! Three people Combination is too much. Try to divide some...");
+                    nowIndex = r.Next(0, _3C.Count);
+                    nowCombination = (PeopleCombination)_3C[nowIndex];
+                    _3C.Remove(nowCombination);
+                    if (Ran())
+                    {
+                        SinglePeoplePool.Add(nowCombination.Split(1)[0]);
+                        _2C.Add(nowCombination.Split(1)[1]);
+                    }
+                    else
+                    {
+                        SinglePeoplePool.Add(nowCombination.Split(2)[1]);
+                        _2C.Add(nowCombination.Split(2)[0]);
+                    }
+                }
+            }
+            while (_2C.Count > _2)
+            {
+                if (_4C.Count < _4)
+                {
+                    nowIndex = r.Next(0, _2C.Count);
+                    nowCombination = (PeopleCombination)_2C[nowIndex];
+                    _2C.Remove(_2C[nowIndex]);
+                    nowIndex = r.Next(0, _2C.Count);
+                    nowCombination_ = (PeopleCombination)_2C[nowIndex];
+                    _2C.Remove(_2C[nowIndex]);
+                    nowCombination.AddRange(nowCombination_.GetInnerData());
+                    _4C.Add(nowCombination);
+                }
+                else if ((_3C.Count < _3) && (SinglePeoplePool.Count > 0))
+                {
+                    nowIndex = r.Next(0, SinglePeoplePool.Count);
+                    nowCombination = (PeopleCombination)SinglePeoplePool[nowIndex];
+                    SinglePeoplePool.RemoveAt(nowIndex);
+                    nowIndex = r.Next(0, _2C.Count);
+                    nowCombination_ = (PeopleCombination)_2C[nowIndex];
+                    _2C.RemoveAt(nowIndex);
+                    _3C.Add(PeopleCombination.Combine(nowCombination, nowCombination_));
+                }
+                else
+                {
+                    Console.WriteLine("Can't keep up!! Two people Combination is too much. Try to divide some...");
+                    nowIndex = r.Next(0, _2C.Count);
+                    nowCombination = (PeopleCombination)_2C[nowIndex];
+                    _2C.Remove(nowCombination);
+                    SinglePeoplePool.AddRange(nowCombination.Split(1));
+                }
+            }
+            //去单人化
+            while (SinglePeoplePool.Count > 0)
+            {
+                if(_2C.Count < _2){
+                    nowIndex = r.Next(0, SinglePeoplePool.Count);
+                    nowCombination = (PeopleCombination)SinglePeoplePool[nowIndex];
+                    SinglePeoplePool.Remove(nowCombination);
+                    nowIndex = r.Next(0, SinglePeoplePool.Count);
+                    nowCombination_ = (PeopleCombination)SinglePeoplePool[nowIndex];
+                    SinglePeoplePool.Remove(nowCombination_);
+                    _2C.Add(PeopleCombination.Combine(nowCombination, nowCombination_));
+                }
+                else if (_3C.Count < _3)
+                {
+                    nowIndex = r.Next(0, SinglePeoplePool.Count);
+                    nowCombination = (PeopleCombination)SinglePeoplePool[nowIndex];
+                    SinglePeoplePool.Remove(nowCombination);
+                    nowIndex = r.Next(0, SinglePeoplePool.Count);
+                    nowCombination_ = (PeopleCombination)SinglePeoplePool[nowIndex];
+                    SinglePeoplePool.Remove(nowCombination_);
+                    nowCombination = PeopleCombination.Combine(nowCombination, nowCombination_);
+                    nowIndex = r.Next(0, SinglePeoplePool.Count);
+                    nowCombination_ = (PeopleCombination)SinglePeoplePool[nowIndex];
+                    SinglePeoplePool.Remove(nowCombination_);
+                    _3C.Add(PeopleCombination.Combine(nowCombination, nowCombination_));
+                }
+                else
+                {
+                    nowIndex = r.Next(0, SinglePeoplePool.Count);
+                    nowCombination = (PeopleCombination)SinglePeoplePool[nowIndex];
+                    SinglePeoplePool.Remove(nowCombination);
+                    nowIndex = r.Next(0, SinglePeoplePool.Count);
+                    nowCombination_ = (PeopleCombination)SinglePeoplePool[nowIndex];
+                    SinglePeoplePool.Remove(nowCombination_);
+                    nowCombination = PeopleCombination.Combine(nowCombination, nowCombination_);
+                    nowIndex = r.Next(0, SinglePeoplePool.Count);
+                    nowCombination_ = (PeopleCombination)SinglePeoplePool[nowIndex];
+                    SinglePeoplePool.Remove(nowCombination_);
+                    nowCombination = PeopleCombination.Combine(nowCombination, nowCombination_);
+                    nowIndex = r.Next(0, SinglePeoplePool.Count);
+                    nowCombination_ = (PeopleCombination)SinglePeoplePool[nowIndex];
+                    SinglePeoplePool.Remove(nowCombination_);
+                    _4C.Add(PeopleCombination.Combine(nowCombination, nowCombination_));
+                }
+            }
+        }
+        private bool Ran()
+        {
+            if (r.Next(0, 2) == 0)
+                return false;
+            return true;
+        }
+    }
+}
+```
+## ~~正确使用姿势~~
+> "你写的什么傻---哔---玩意儿，鬼他妈知道怎么用"
+
+> "我....我还有代码"
+
+> 代码重装不见了。。。。。。
+
+> 自己van去吧   逃)
